@@ -1,13 +1,14 @@
 #pragma once
 
 #include "Config.h"
-
+#include "DarkModeUI.h"
 #include "resource.h"
 
 
 class ConfigDlg : 
 	public CDialogImpl<ConfigDlg>,
-	public CWinDataExchange<ConfigDlg>
+	public CWinDataExchange<ConfigDlg>,
+	public DarkModeUI<ConfigDlg>
 {
 public:
 	enum { IDD = IDD_CONFIG };
@@ -20,6 +21,7 @@ public:
 		DDX_CHECK(IDC_CHECK_STOPUPDATEPREVIEWONTRAINING, m_stopUpdatePreviewOnTraining)
 		DDX_CHECK(IDC_CHECK_POPUP_RACELISTWINDOW, m_popupRaceListWindow)
 		DDX_CHECK(IDC_CHECK_NOTIFY_FAVORITERACEHOLD, m_notifyFavoriteRaceHold)
+		DDX_COMBO_INDEX(IDC_COMBO_THEME, m_theme)
 	END_DDX_MAP()
 
 	BEGIN_MSG_MAP_EX(ConfigDlg)
@@ -28,6 +30,7 @@ public:
 		COMMAND_ID_HANDLER(IDCANCEL, OnCancel)
 
 		COMMAND_ID_HANDLER_EX(IDC_BUTTON_CHECK_UMALIBRARY, OnCheckUmaLibrary)
+		CHAIN_MSG_MAP(DarkModeUI<ConfigDlg>)
 	END_MSG_MAP()
 
 	// Handler prototypes (uncomment arguments if needed):
@@ -49,5 +52,6 @@ private:
 	bool	m_stopUpdatePreviewOnTraining = false;
 	bool	m_popupRaceListWindow = false;
 	bool	m_notifyFavoriteRaceHold = true;
+	int		m_theme = Config::kAuto;
 
 };

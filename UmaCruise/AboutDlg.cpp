@@ -5,22 +5,28 @@
 
 #include <future>
 #include <vector>
+#include <thread>
 
 #include <tesseract\baseapi.h>
 #include <leptonica\allheaders.h>
 
 #include <opencv2\opencv.hpp>
 
+#include <boost\algorithm\string\trim_all.hpp>
+
 #include "Utility\CodeConvert.h"
 #include "Utility\CommonUtility.h"
 #include "Utility\json.hpp"
 #include "Utility\timer.h"
+#include "Utility\WinHTTPWrapper.h"
 #include "TesseractWrapper.h"
 using namespace TesseractWrapper;
 
 using json = nlohmann::json;
 using namespace CodeConvert;
 using namespace cv;
+
+CString	g_versionCheckText;
 
 cv::Mat GdiPlusBitmapToOpenCvMat(Gdiplus::Bitmap* bmp);
 
@@ -113,6 +119,38 @@ LRESULT CAboutDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 	}
 	m_cmbTestBounds.SetCurSel(0);
 
+#ifdef _DEBUG
+	CWindow wndVersionCheck = GetDlgItem(IDC_SYSLINK_VERSIONCHECK);
+	wndVersionCheck.SetWindowText(L"デバッグ中");
+#else
+	if (g_versionCheckText.IsEmpty()) {
+		std::thread([this]() {
+			CWindow wndVersionCheck = GetDlgItem(IDC_SYSLINK_VERSIONCHECK);
+
+			CString versionURL = L"https://raw.githubusercontent.com/amate/UmaUmaCruise/master/appversion.txt";
+			if (auto optVersion = WinHTTPWrapper::HttpDownloadData(versionURL)) {
+				std::wstring latestVersion = UTF16fromUTF8(optVersion.get());
+				boost::algorithm::trim_all(latestVersion);
+
+				if (latestVersion != kAppVersion) {
+					g_versionCheckText.Format(L"更新あり: <a>%s</a>", latestVersion.c_str());
+					wndVersionCheck.SetWindowText(g_versionCheckText);
+				} else {
+					g_versionCheckText = L"更新なし";
+					wndVersionCheck.SetWindowText(g_versionCheckText);
+				}				
+			} else {
+				g_versionCheckText = L"更新確認に失敗";
+				wndVersionCheck.SetWindowText(g_versionCheckText);
+			}
+		}).detach();
+	} else {
+		CWindow wndVersionCheck = GetDlgItem(IDC_SYSLINK_VERSIONCHECK);
+		wndVersionCheck.SetWindowText(g_versionCheckText);
+	}
+#endif
+	DarkModeInit();
+
 	return TRUE;
 }
 
@@ -129,6 +167,18 @@ LRESULT CAboutDlg::OnLinkClick(int, LPNMHDR, BOOL&)
 	return LRESULT();
 }
 
+LRESULT CAboutDlg::OnLinkClickHomePage(int, LPNMHDR, BOOL&)
+{
+	::ShellExecute(NULL, nullptr, L"https://github.com/amate/UmaUmaCruise", nullptr, nullptr, SW_NORMAL);
+	return LRESULT();
+}
+
+LRESULT CAboutDlg::OnLinkClickLatestVersion(int, LPNMHDR, BOOL&)
+{
+	::ShellExecute(NULL, nullptr, L"https://github.com/amate/UmaUmaCruise/releases", nullptr, nullptr, SW_NORMAL);
+	return LRESULT();
+}
+
 LRESULT CAboutDlg::OnOCR(WORD, WORD, HWND, BOOL&)
 {
 	const int index = m_cmbTestBounds.GetCurSel();
@@ -142,14 +192,23 @@ LRESULT CAboutDlg::OnOCR(WORD, WORD, HWND, BOOL&)
 
 	CRect rcBounds;
 	CRect rcIconBounds;
+
+	json jsonCommon;
+	std::ifstream ifs((GetExeDirectory() / L"UmaLibrary" / L"Common.json").wstring());
+	ATLASSERT(ifs);
+	if (!ifs) {
+		return 0;
+	}
+	ifs >> jsonCommon;
+	const json& jsonHSVBounds = jsonCommon["Common"]["ImageProcess"]["HSV_TextColorBounds"];
+	int h_min = jsonHSVBounds[0][0];
+	int h_max = jsonHSVBounds[0][1];
+	int s_min = jsonHSVBounds[1][0];
+	int s_max = jsonHSVBounds[1][1];
+	int v_min = jsonHSVBounds[2][0];
+	int v_max = jsonHSVBounds[2][1];
 	if (index != kDirect) {
-		json jsonCommon;
-		std::ifstream ifs((GetExeDirectory() / L"UmaLibrary" / L"Common.json").wstring());
-		ATLASSERT(ifs);
-		if (!ifs) {
-			return 0;
-		}
-		ifs >> jsonCommon;
+
 
 		json jsonOCR = jsonCommon["Common"]["TestBounds"];
 
@@ -202,6 +261,12 @@ LRESULT CAboutDlg::OnOCR(WORD, WORD, HWND, BOOL&)
 
 			cutImage = cv::Mat(srcImage, cvRectFromCRect(rcBounds));
 		}
+	} else if (index == kEventBottomOptionBounds) {
+		CRect rcAdjustTextBounds = GetTextBounds(cutImage, rcBounds);
+		rcBounds = rcAdjustTextBounds;
+
+		cutImage = cv::Mat(srcImage, cvRectFromCRect(rcBounds));
+
 	} else if (index == kEventNameIconBounds) {
 		bool isIcon = IsEventNameIcon(srcImage, rcBounds);
 		CString result;
@@ -225,12 +290,12 @@ LRESULT CAboutDlg::OnOCR(WORD, WORD, HWND, BOOL&)
 		cv::Mat resizedImage;
 		cv::resize(hsvImage, resizedImage, cv::Size(), scale, scale, cv::INTER_LINEAR/*INTER_CUBIC*/);
 
-		int h_min = 12;
-		int h_max = 13;
-		int s_min = 75;
-		int s_max = 255;
-		int v_min = 100;
-		int v_max = 180;
+		//int h_min = 12;
+		//int h_max = 13;
+		//int s_min = 75;
+		//int s_max = 255;
+		//int v_min = 100;
+		//int v_max = 180;
 		cv::Mat textImage;
 		cv::inRange(resizedImage, cv::Scalar(h_min, s_min, v_min), cv::Scalar(h_max, s_max, v_max), textImage);
 

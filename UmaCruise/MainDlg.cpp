@@ -11,12 +11,30 @@
 #include "Utility\CommonUtility.h"
 #include "Utility\json.hpp"
 #include "Utility\timer.h"
+#include "win32-darkmode\DarkMode.h"
 
 #include "ConfigDlg.h"
 
 using json = nlohmann::json;
 using namespace CodeConvert;
 using namespace cv;
+
+
+bool IsDarkMode()
+{
+	CRegKey regkey;
+	LSTATUS ret = regkey.Open(HKEY_CURRENT_USER, LR"(SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize)", KEY_READ);
+	if (ret == ERROR_SUCCESS) {
+		DWORD value = 0;
+		ret = regkey.QueryDWORDValue(L"AppsUseLightTheme", value);
+		if (ret == ERROR_SUCCESS) {
+			bool isDarkMode = !value;
+			return isDarkMode;
+		}
+	}
+	return false;
+}
+
 
 
 // android版
@@ -99,6 +117,8 @@ LRESULT CMainDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 	}
 
 	m_config.LoadConfig();
+
+	ChangeGlobalTheme(m_config.theme);
 
 	DoDataExchange(DDX_LOAD);
 
@@ -202,6 +222,9 @@ LRESULT CMainDlg::OnInitDialog(UINT, WPARAM, LPARAM, BOOL&)
 		CButton(GetDlgItem(IDC_CHECK_START)).SetCheck(BST_CHECKED);
 		OnStart(0, 0, NULL);
 	}
+
+	DarkModeInit();
+
 	return TRUE;
 }
 
@@ -286,11 +309,18 @@ LRESULT CMainDlg::OnCancel(WORD, WORD wID, HWND, BOOL&)
 void CMainDlg::OnShowConfigDlg(UINT uNotifyCode, int nID, CWindow wndCtl)
 {
 	const bool prevPopupRaceListWindow = m_config.popupRaceListWindow;
+	const int prevTheme = m_config.theme;
 	ConfigDlg dlg(m_config);
 	auto ret = dlg.DoModal(m_hWnd);
 	if (ret == IDOK) {
 		if (prevPopupRaceListWindow != m_config.popupRaceListWindow) {
 			_DockOrPopupRaceListWindow();
+		}
+		if (prevTheme != m_config.theme) {
+			ChangeGlobalTheme(m_config.theme);
+			OnThemeChanged();
+			m_raceListWindow.OnThemeChanged();
+			m_previewWindow.OnThemeChanged();
 		}
 	}
 }
@@ -392,7 +422,7 @@ HBRUSH CMainDlg::OnCtlColorDlg(CDCHandle dc, CWindow wnd)
 		dc.SetBkColor(m_optionBkColor[i]);
 		return m_brsOptions[i];
 	}
-
+	SetMsgHandled(FALSE);
 	return (HBRUSH)::GetStockObject(WHITE_BRUSH);
 }
 
@@ -796,6 +826,7 @@ void CMainDlg::_UpdateEventOptions(const UmaEventLibrary::UmaEvent& umaEvent)
 		const int IDC_EFFECT = IDC_EDIT_EFFECT1 + i;
 		GetDlgItem(IDC_OPTION).SetWindowText(umaEvent.eventOptions[i].option.c_str());
 		GetDlgItem(IDC_EFFECT).SetWindowText(umaEvent.eventOptions[i].effect.c_str());
+
 	}
 }
 

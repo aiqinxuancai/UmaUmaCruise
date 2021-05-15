@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 
+#include <wtl\atlctrls.h>	// RichEditCtrl
 #include "MainDlg.h"
 
 #include "Utility\CommonUtility.h"
@@ -10,6 +11,7 @@
 #include "Utility\GdiplusUtil.h"
 #include "Utility\WinHTTPWrapper.h"
 #include "TesseractWrapper.h"
+#include "win32-darkmode\DarkMode.h"
 
 // グローバル変数
 CAppModule _Module;
@@ -55,6 +57,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 	hRes = _Module.Init(NULL, hInstance);
 	ATLASSERT(SUCCEEDED(hRes));
 
+	//HMODULE hModRichEdit = ::LoadLibrary(CRichEditCtrl::GetLibraryName());
+	//ATLASSERT(hModRichEdit);
+
 	GdiplusInit();
 	TesseractWrapper::TesseractInit();
 	WinHTTPWrapper::InitWinHTTP();
@@ -66,6 +71,8 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 		g_funcSetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED);
 	}
 
+	InitDarkMode();
+
 	int nRet = Run(lpstrCmdLine, nCmdShow);
 
 	g_funcSetThreadDpiAwarenessContext = nullptr;
@@ -75,6 +82,9 @@ int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lp
 	WinHTTPWrapper::TermWinHTTP();
 	TesseractWrapper::TesseractTerm();
 	GdiplusTerm();
+
+	//::FreeLibrary(hModRichEdit);
+	//hModRichEdit = NULL;
 
 	_Module.Term();
 	::CoUninitialize();
