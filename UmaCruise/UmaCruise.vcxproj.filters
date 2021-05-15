@@ -174,5 +174,6 @@
       <Filter>Source Files</Filter>
     </None>
     <None Include=".editorconfig" />
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
