@@ -212,6 +212,24 @@ std::unique_ptr<Gdiplus::Bitmap> UmaTextRecognizer::ScreenShot()
 	LPCWSTR className = m_targetClassName.GetLength() ? (LPCWSTR)m_targetClassName : nullptr;
 	LPCWSTR windowName = m_targetWindowName.GetLength() ? (LPCWSTR)m_targetWindowName : nullptr;
 	CWindow hwndTarget = ::FindWindow(className, windowName);
+
+	
+	CWindow coreViewHwnd = NULL;
+
+	if (!hwndTarget) {
+		CWindow yeshenWindow = ::FindWindow(L"Qt5QWindowIcon", L"夜神模拟器");
+		if (yeshenWindow) {
+			INFO_LOG << L"Find Yeshen";
+			CWindow contentViewHwnd = ::FindWindowEx(yeshenWindow, 0, L"Qt5QWindowIcon", L"ScreenBoardClassWindow");
+			coreViewHwnd = ::FindWindowEx(contentViewHwnd, 0, L"subWin", L"sub");
+			if (coreViewHwnd) {
+				hwndTarget = coreViewHwnd;
+			}
+		}
+	
+	}
+
+
 	if (!hwndTarget) {
 		return nullptr;
 	}
